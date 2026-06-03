@@ -1,0 +1,18 @@
+{
+  "popup": {
+    "title": "Webi18n",
+    "subtitle": "Web Translator",
+    "currentSite": "Current Site",
+    "targetLang": "Target Language",
+    "mode": "Translation Mode",
+    "replaceMode": "Replace Original",
+    "bilingualMode": "Bilingual",
+    "extractBtn": "📥 Extract Page Text",
+    "applyBtn": "📂 Apply Translation File",
+    "removeBtn": "🗑️ Remove Translation",
+    "saved": "Saved",
+    "applied": "Translation Applied",
+    "invalidFile": "Invalid File Format",
+    "repoLink": "GitHub Repository"
+  }
+}

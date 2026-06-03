@@ -1,0 +1,18 @@
+{
+  "popup": {
+    "title": "Webi18n",
+    "subtitle": "网页翻译",
+    "currentSite": "当前网站",
+    "targetLang": "目标语言",
+    "mode": "翻译模式",
+    "replaceMode": "替换原文",
+    "bilingualMode": "双语并排",
+    "extractBtn": "📥 提取页面文本",
+    "applyBtn": "📂 应用翻译文件",
+    "removeBtn": "🗑️ 移除翻译",
+    "saved": "已保存",
+    "applied": "翻译已应用",
+    "invalidFile": "文件格式错误",
+    "repoLink": "GitHub 仓库"
+  }
+}

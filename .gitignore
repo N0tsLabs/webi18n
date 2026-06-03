@@ -1,0 +1,8 @@
+node_modules/
+.output/
+.wxt/
+dist/
+.omc/
+*.local
+.DS_Store
+Thumbs.db
