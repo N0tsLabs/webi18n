@@ -4,85 +4,78 @@
 
 当用户说以下任意内容时触发：
 - "翻译这个页面" / "汉化" / "translate"
-- "翻译网页" / "本地化页面"
+- "翻译 github.com" / "翻译 stackoverflow"
 - 或用户运行 `/translate`
+
+## 工作原理
+
+翻译结果存放在仓库 `translations/` 目录下，插件会自动从 GitHub 拉取并应用。
+你只需要完成翻译并 commit，所有用户自动获得更新。
 
 ## 操作流程
 
-### 1. 查找翻译文件
+### 1. 打开目标页面
 
-检查用户下载目录（通常为 `~/Downloads/`）或 `/tmp/webi18n/` 下的最新 JSON 文件。
+用浏览器工具打开用户指定的网站，截图了解页面结构。
 
-文件名格式：`webi18n-{hostname}-{timestamp}.json`
+### 2. 提取页面文本
 
-### 2. 读取原文
+遍历页面 DOM，提取所有可见文本节点和属性文本（placeholder、aria-label、title、alt）。
 
-```bash
-# 找到最新的提取文件
-ls -lt ~/Downloads/webi18n-*.json | head -1
-```
-
-读取 JSON，结构如下：
-```json
-{
-  "meta": { "hostname": "github.com", "sourceLang": "en", "targetLang": "zh-CN" },
-  "texts": [
-    { "id": "t1", "original": "Code", "selector": null, "attribute": null, "translated": null }
-  ]
-}
-```
+提取规则：
+- 跳过 `<script>`、`<style>`、`<code>`、`<pre>` 等标签
+- 跳过少于 2 个字符或超过 500 字符的文本
+- 跳过纯数字、纯符号
 
 ### 3. 翻译
 
-根据 `meta.targetLang` 翻译每条 `original` 文本，填写到 `translated` 字段。
+将提取的文本翻译为目标语言（默认中文）。
 
-**翻译规则：**
+翻译规则：
 - 品牌名不翻译：GitHub, JavaScript, TypeScript, React, Vue, Node.js 等
 - URL 不翻译
 - 代码片段、命令不翻译
 - 保持技术术语准确性（如 "Pull request" → "拉取请求"，"Commit" → "提交"）
-- 保持语气一致
-
-**翻译技巧：**
 - 短文本（按钮、标签）：简洁直接
 - 长文本（描述、说明）：通顺自然
-- UI 文本：符合目标语言的表达习惯
 
-### 4. 写回结果
+### 4. 写入翻译文件
 
-将翻译结果写入新文件：`{原文件名}-translated.json`
+将翻译结果写入 `translations/{hostname}.json`，格式如下：
 
-```bash
-# 写入翻译结果
-cat > ~/Downloads/webi18n-github.com-1234567890-translated.json << 'EOF'
+```json
 {
-  "meta": { ... },
+  "meta": {
+    "hostname": "github.com",
+    "sourceLang": "en",
+    "targetLang": "zh-CN",
+    "updatedAt": "2026-06-03T10:00:00Z"
+  },
   "texts": [
-    { "id": "t1", "original": "Code", "translated": "代码", ... }
+    { "id": "t1", "original": "Code", "translated": "代码", "attribute": null },
+    { "id": "t2", "original": "Pull requests", "translated": "拉取请求", "attribute": null },
+    { "id": "t3", "original": "Search or jump to...", "translated": "搜索或跳转到...", "attribute": "placeholder" }
   ]
 }
-EOF
 ```
 
-### 5. 通知完成
+### 5. 提交到仓库
 
-告诉用户：
-- 翻译已完成
-- 文件位置
-- 如何应用：点击 Webi18n 插件图标 → "应用翻译文件" → 选择翻译后的 JSON 文件
+```bash
+git add translations/{hostname}.json
+git commit -m "翻译 {hostname} 页面"
+git push
+```
 
-## 高级用法
+完成后告知用户翻译已上线，插件会在下次访问时自动加载。
 
-### 批量翻译
+## 批量翻译
 
-如果 texts 数量很多（>100条），分批处理：
+如果页面文本量很大（>100条），分批处理：
 - 每批 50-100 条
-- 保持 id 对应关系
+- 保持 id 连续
+- 最终合并为一个文件
 
-### 多语言
+## 多语言
 
-目标语言不限于中文，支持所有常见语言。根据 `meta.targetLang` 字段决定目标语言。
-
-### 自定义规则
-
-如果用户指定了特殊规则（如"保留英文专有名词"），优先遵循用户指令。
+目标语言不限于中文。根据用户指定的语言翻译，文件中 `meta.targetLang` 字段记录目标语言代码。

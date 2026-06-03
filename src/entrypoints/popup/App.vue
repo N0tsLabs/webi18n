@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import type { PluginSettings } from '~/types';
+import { listAvailableTranslations } from '~/utils/fetcher';
 
 const settings = ref<PluginSettings>({
   globalEnabled: true,
@@ -13,6 +14,7 @@ const currentHostname = ref('');
 const currentSiteEnabled = ref(true);
 const currentMode = ref<'replace' | 'bilingual'>('replace');
 const status = ref('');
+const translationStatus = ref<'loading' | 'found' | 'not-found'>('loading');
 
 const LANGUAGES = [
   { code: 'zh-CN', name: '简体中文' },
@@ -50,6 +52,11 @@ onMounted(async () => {
       currentMode.value = settings.value.defaultMode;
     }
   }
+
+  if (currentHostname.value) {
+    const available = await listAvailableTranslations();
+    translationStatus.value = available.includes(currentHostname.value) ? 'found' : 'not-found';
+  }
 });
 
 async function saveSettings() {
@@ -62,57 +69,17 @@ async function saveSettings() {
   }
   settings.value.defaultMode = currentMode.value;
   await browser.storage.local.set({ settings: settings.value });
-  status.value = '已保存';
-  setTimeout(() => (status.value = ''), 2000);
 }
 
-async function extractPage() {
-  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.id) return;
+async function toggleSite() {
   await saveSettings();
-  browser.tabs.sendMessage(tab.id, {
-    type: 'EXTRACT_PAGE',
-    targetLang: settings.value.defaultTargetLang,
-    mode: currentMode.value,
-  });
-}
-
-async function applyTranslation() {
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.id) return;
-
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = '.json';
-  input.onchange = async () => {
-    const file = input.files?.[0];
-    if (!file) return;
-    const text = await file.text();
-    try {
-      const data = JSON.parse(text);
-      await saveSettings();
-      browser.tabs.sendMessage(tab.id!, {
-        type: 'APPLY_TRANSLATION',
-        data,
-        mode: currentMode.value,
-      });
-      status.value = '翻译已应用';
-      setTimeout(() => (status.value = ''), 2000);
-    } catch {
-      status.value = '文件格式错误';
-      setTimeout(() => (status.value = ''), 3000);
-    }
-  };
-  input.click();
+  if (tab?.id) {
+    browser.tabs.sendMessage(tab.id, { type: 'RELOAD_TRANSLATION' });
+  }
 }
 
-async function removeTranslation() {
-  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.id) return;
-  browser.tabs.sendMessage(tab.id, { type: 'REMOVE_TRANSLATION' });
-}
-
-function openOptions() {
+function openGitHub() {
   browser.tabs.create({ url: 'https://github.com/N0tsLabs/webi18n' });
 }
 </script>
@@ -120,22 +87,30 @@ function openOptions() {
 <template>
   <div class="popup">
     <header class="header">
-      <h1>🌐 Webi18n</h1>
-      <span class="subtitle">网页翻译</span>
+      <div class="logo">🌐</div>
+      <div class="header-text">
+        <h1>Webi18n</h1>
+        <span class="subtitle">网页翻译</span>
+      </div>
     </header>
 
-    <div v-if="currentHostname" class="section">
-      <label>当前网站</label>
-      <div class="site-row">
+    <div v-if="currentHostname" class="card">
+      <div class="card-header">
+        <span class="site-icon">🔗</span>
         <span class="hostname">{{ currentHostname }}</span>
         <label class="toggle">
-          <input type="checkbox" v-model="currentSiteEnabled" @change="saveSettings" />
+          <input type="checkbox" v-model="currentSiteEnabled" @change="toggleSite" />
           <span class="slider"></span>
         </label>
       </div>
+      <div class="card-status">
+        <span v-if="translationStatus === 'loading'" class="badge badge-loading">检查中...</span>
+        <span v-else-if="translationStatus === 'found'" class="badge badge-ok">已翻译</span>
+        <span v-else class="badge badge-none">暂无翻译</span>
+      </div>
     </div>
 
-    <div class="section">
+    <div class="field">
       <label>目标语言</label>
       <select v-model="settings.defaultTargetLang" @change="saveSettings" class="select">
         <option v-for="lang in LANGUAGES" :key="lang.code" :value="lang.code">
@@ -144,8 +119,8 @@ function openOptions() {
       </select>
     </div>
 
-    <div class="section">
-      <label>翻译模式</label>
+    <div class="field">
+      <label>显示模式</label>
       <div class="mode-row">
         <button
           :class="['mode-btn', { active: currentMode === 'replace' }]"
@@ -162,20 +137,14 @@ function openOptions() {
       </div>
     </div>
 
-    <div class="actions">
-      <button class="btn primary" @click="extractPage">📥 提取页面文本</button>
-      <button class="btn" @click="applyTranslation">📂 应用翻译文件</button>
-      <button class="btn danger" @click="removeTranslation">🗑️ 移除翻译</button>
-    </div>
-
-    <div v-if="status" class="status">{{ status }}</div>
+    <div v-if="status" class="toast">{{ status }}</div>
 
     <footer class="footer">
-      <a href="https://github.com/N0tsLabs/webi18n" target="_blank" @click.prevent="openOptions">
-        GitHub 仓库
+      <a href="https://github.com/N0tsLabs/webi18n" target="_blank" @click.prevent="openGitHub">
+        GitHub
       </a>
       <span class="sep">·</span>
-      <span>v0.1.0</span>
+      <span class="version">v0.1.0</span>
     </footer>
   </div>
 </template>
@@ -189,113 +158,132 @@ function openOptions() {
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  background: #0f0f23;
-  color: #e0e0e0;
-  width: 320px;
+  background: #fff;
+  color: #1a1a2e;
+  width: 300px;
 }
 
 .popup {
-  padding: 16px;
+  padding: 20px;
 }
 
 .header {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #1e1e3f;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
 }
 
-.header h1 {
+.logo {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 18px;
-  font-weight: 700;
   color: #fff;
+  flex-shrink: 0;
+}
+
+.header-text h1 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a2e;
+  line-height: 1.2;
 }
 
 .subtitle {
-  font-size: 12px;
-  color: #666;
+  font-size: 11px;
+  color: #999;
 }
 
-.section {
-  margin-bottom: 14px;
+.card {
+  background: #f8f9ff;
+  border: 1px solid #e8ecf4;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
 }
 
-.section label {
-  display: block;
-  font-size: 12px;
-  color: #888;
-  margin-bottom: 6px;
-}
-
-.site-row {
+.card-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
+}
+
+.site-icon {
+  font-size: 14px;
 }
 
 .hostname {
-  font-size: 14px;
-  color: #aaa;
-  font-family: monospace;
+  flex: 1;
+  font-size: 13px;
+  color: #555;
+  font-family: 'SF Mono', Monaco, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.toggle {
-  position: relative;
+.card-status {
+  margin-top: 8px;
+}
+
+.badge {
   display: inline-block;
-  width: 40px;
-  height: 22px;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
 }
 
-.toggle input {
-  opacity: 0;
-  width: 0;
-  height: 0;
+.badge-ok {
+  background: #e6f7ed;
+  color: #1a8a4a;
 }
 
-.slider {
-  position: absolute;
-  cursor: pointer;
-  inset: 0;
-  background: #333;
-  border-radius: 22px;
-  transition: 0.3s;
+.badge-none {
+  background: #f0f0f0;
+  color: #888;
 }
 
-.slider::before {
-  content: '';
-  position: absolute;
-  height: 16px;
-  width: 16px;
-  left: 3px;
-  bottom: 3px;
-  background: #fff;
-  border-radius: 50%;
-  transition: 0.3s;
+.badge-loading {
+  background: #eef0ff;
+  color: #667eea;
 }
 
-.toggle input:checked + .slider {
-  background: #0969da;
+.field {
+  margin-bottom: 14px;
 }
 
-.toggle input:checked + .slider::before {
-  transform: translateX(18px);
+.field label {
+  display: block;
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 6px;
+  font-weight: 500;
 }
 
 .select {
   width: 100%;
   padding: 8px 10px;
-  background: #1a1a2e;
-  color: #e0e0e0;
-  border: 1px solid #333;
-  border-radius: 6px;
-  font-size: 14px;
+  background: #f8f9ff;
+  color: #1a1a2e;
+  border: 1px solid #e8ecf4;
+  border-radius: 8px;
+  font-size: 13px;
   outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
 }
 
 .select:focus {
-  border-color: #0969da;
+  border-color: #667eea;
 }
 
 .mode-row {
@@ -306,86 +294,47 @@ body {
 .mode-btn {
   flex: 1;
   padding: 8px;
-  background: #1a1a2e;
-  color: #aaa;
-  border: 1px solid #333;
-  border-radius: 6px;
-  font-size: 13px;
+  background: #f8f9ff;
+  color: #888;
+  border: 1px solid #e8ecf4;
+  border-radius: 8px;
+  font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
+  font-weight: 500;
 }
 
 .mode-btn.active {
-  background: #0969da;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #fff;
-  border-color: #0969da;
+  border-color: transparent;
 }
 
 .mode-btn:hover:not(.active) {
-  border-color: #555;
+  border-color: #667eea;
+  color: #667eea;
 }
 
-.actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.btn {
-  padding: 10px;
-  background: #1a1a2e;
-  color: #e0e0e0;
-  border: 1px solid #333;
-  border-radius: 8px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn:hover {
-  border-color: #0969da;
-  background: #1e1e3f;
-}
-
-.btn.primary {
-  background: #0969da;
-  color: #fff;
-  border-color: #0969da;
-}
-
-.btn.primary:hover {
-  background: #0757b5;
-}
-
-.btn.danger {
-  color: #f85149;
-}
-
-.btn.danger:hover {
-  background: #2d1013;
-  border-color: #f85149;
-}
-
-.status {
+.toast {
   text-align: center;
   margin-top: 10px;
   font-size: 12px;
-  color: #3fb950;
+  color: #1a8a4a;
 }
 
 .footer {
   margin-top: 16px;
   padding-top: 12px;
-  border-top: 1px solid #1e1e3f;
+  border-top: 1px solid #f0f0f0;
   text-align: center;
-  font-size: 12px;
-  color: #555;
+  font-size: 11px;
+  color: #bbb;
 }
 
 .footer a {
-  color: #0969da;
+  color: #667eea;
   text-decoration: none;
+  font-weight: 500;
 }
 
 .footer a:hover {
@@ -394,5 +343,9 @@ body {
 
 .sep {
   margin: 0 4px;
+}
+
+.version {
+  color: #ccc;
 }
 </style>

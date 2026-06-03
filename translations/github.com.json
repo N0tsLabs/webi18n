@@ -1,0 +1,40 @@
+{
+  "meta": {
+    "hostname": "github.com",
+    "sourceLang": "en",
+    "targetLang": "zh-CN",
+    "updatedAt": "2026-06-03T00:00:00Z"
+  },
+  "texts": [
+    { "id": "t1", "original": "Code", "translated": "代码", "attribute": null },
+    { "id": "t2", "original": "Issues", "translated": "议题", "attribute": null },
+    { "id": "t3", "original": "Pull requests", "translated": "拉取请求", "attribute": null },
+    { "id": "t4", "original": "Actions", "translated": "操作", "attribute": null },
+    { "id": "t5", "original": "Projects", "translated": "项目", "attribute": null },
+    { "id": "t6", "original": "Wiki", "translated": "维基", "attribute": null },
+    { "id": "t7", "original": "Security", "translated": "安全", "attribute": null },
+    { "id": "t8", "original": "Insights", "translated": "洞察", "attribute": null },
+    { "id": "t9", "original": "Search or jump to...", "translated": "搜索或跳转到...", "attribute": "placeholder" },
+    { "id": "t10", "original": "Pull requests", "translated": "拉取请求", "attribute": null },
+    { "id": "t11", "original": "New pull request", "translated": "新建拉取请求", "attribute": null },
+    { "id": "t12", "original": "Compare", "translated": "比较", "attribute": null },
+    { "id": "t13", "original": "Create new file", "translated": "创建新文件", "attribute": null },
+    { "id": "t14", "original": "Upload files", "translated": "上传文件", "attribute": null },
+    { "id": "t15", "original": "Find file", "translated": "查找文件", "attribute": null },
+    { "id": "t16", "original": "Clone", "translated": "克隆", "attribute": null },
+    { "id": "t17", "original": "About", "translated": "关于", "attribute": null },
+    { "id": "t18", "original": "Releases", "translated": "发行版", "attribute": null },
+    { "id": "t19", "original": "Packages", "translated": "包", "attribute": null },
+    { "id": "t20", "original": "Languages", "translated": "语言", "attribute": null },
+    { "id": "t21", "original": "Stars", "translated": "星标", "attribute": null },
+    { "id": "t22", "original": "Forks", "translated": "复刻", "attribute": null },
+    { "id": "t23", "original": "Watchers", "translated": "关注者", "attribute": null },
+    { "id": "t24", "original": "License", "translated": "许可证", "attribute": null },
+    { "id": "t25", "original": "Stargazers", "translated": "星标者", "attribute": null },
+    { "id": "t26", "original": "Fork", "translated": "复刻", "attribute": null },
+    { "id": "t27", "original": "Star", "translated": "星标", "attribute": null },
+    { "id": "t28", "original": "Unstar", "translated": "取消星标", "attribute": null },
+    { "id": "t29", "original": "Sign in", "translated": "登录", "attribute": null },
+    { "id": "t30", "original": "Sign up", "translated": "注册", "attribute": null }
+  ]
+}
