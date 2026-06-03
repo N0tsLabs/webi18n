@@ -12,10 +12,5 @@ export default defineConfig({
       default_popup: 'popup.html',
       default_title: 'Webi18n · 网页翻译',
     },
-    icons: {
-      16: 'icon-16.png',
-      48: 'icon-48.png',
-      128: 'icon-128.png',
-    },
   },
 });
