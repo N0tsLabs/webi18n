@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, nextTick } from 'vue';
 import type { PluginSettings } from '~/types';
 import { listAvailableTranslations } from '~/utils/fetcher';
 
@@ -15,6 +15,9 @@ const currentSiteEnabled = ref(true);
 const currentMode = ref<'replace' | 'bilingual'>('replace');
 const status = ref('');
 const translationStatus = ref<'loading' | 'found' | 'not-found'>('loading');
+const logs = ref<string[]>([]);
+const showLogs = ref(false);
+const logContainer = ref<HTMLElement | null>(null);
 
 const LANGUAGES = [
   { code: 'zh-CN', name: '简体中文' },
@@ -57,7 +60,24 @@ onMounted(async () => {
     const available = await listAvailableTranslations();
     translationStatus.value = available.includes(currentHostname.value) ? 'found' : 'not-found';
   }
+
+  fetchLogs();
 });
+
+async function fetchLogs() {
+  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) return;
+  try {
+    const response = await browser.tabs.sendMessage(tab.id, { type: 'GET_LOGS' });
+    if (response?.logs) {
+      logs.value = response.logs;
+      await nextTick();
+      if (logContainer.value) {
+        logContainer.value.scrollTop = logContainer.value.scrollHeight;
+      }
+    }
+  } catch {}
+}
 
 async function saveSettings() {
   if (currentHostname.value) {
@@ -76,6 +96,7 @@ async function toggleSite() {
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
   if (tab?.id) {
     browser.tabs.sendMessage(tab.id, { type: 'RELOAD_TRANSLATION' });
+    setTimeout(fetchLogs, 500);
   }
 }
 
@@ -139,6 +160,17 @@ function openGitHub() {
 
     <div v-if="status" class="toast">{{ status }}</div>
 
+    <div class="log-section">
+      <button class="log-toggle" @click="showLogs = !showLogs">
+        <span>📋 日志</span>
+        <span class="log-arrow" :class="{ open: showLogs }">›</span>
+      </button>
+      <div v-if="showLogs" class="log-panel" ref="logContainer">
+        <div v-if="logs.length === 0" class="log-empty">暂无日志</div>
+        <div v-for="(log, i) in logs" :key="i" class="log-line">{{ log }}</div>
+      </div>
+    </div>
+
     <footer class="footer">
       <a href="https://github.com/N0tsLabs/webi18n" target="_blank" @click.prevent="openGitHub">
         GitHub
@@ -160,7 +192,7 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   background: #fff;
   color: #1a1a2e;
-  width: 300px;
+  width: 320px;
 }
 
 .popup {
@@ -320,6 +352,62 @@ body {
   margin-top: 10px;
   font-size: 12px;
   color: #1a8a4a;
+}
+
+.log-section {
+  margin-top: 14px;
+}
+
+.log-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: #f8f9ff;
+  border: 1px solid #e8ecf4;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #666;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.log-toggle:hover {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.log-arrow {
+  transition: transform 0.2s;
+  font-size: 14px;
+}
+
+.log-arrow.open {
+  transform: rotate(90deg);
+}
+
+.log-panel {
+  margin-top: 6px;
+  max-height: 150px;
+  overflow-y: auto;
+  background: #1a1a2e;
+  border-radius: 8px;
+  padding: 10px;
+  font-family: 'SF Mono', Monaco, monospace;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.log-empty {
+  color: #555;
+  text-align: center;
+}
+
+.log-line {
+  color: #8be9fd;
+  word-break: break-all;
 }
 
 .footer {

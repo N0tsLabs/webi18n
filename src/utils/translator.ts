@@ -2,7 +2,8 @@ import type { TranslationFile, TextEntry } from '~/types';
 
 const ATTRIBUTES = ['placeholder', 'aria-label', 'title', 'alt'];
 
-function findTextNodeByContent(text: string): Text | null {
+function findAllTextNodes(text: string): Text[] {
+  const nodes: Text[] = [];
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       return node.textContent?.trim() === text
@@ -10,7 +11,11 @@ function findTextNodeByContent(text: string): Text | null {
         : NodeFilter.FILTER_REJECT;
     },
   });
-  return walker.nextNode() as Text | null;
+  let node: Text | null;
+  while ((node = walker.nextNode() as Text | null)) {
+    nodes.push(node);
+  }
+  return nodes;
 }
 
 function replaceTextContent(textNode: Text, translated: string): void {
@@ -35,8 +40,10 @@ function replaceAttribute(el: Element, attr: string, translated: string): void {
   el.setAttribute(attr, translated);
 }
 
-export function applyTranslation(data: TranslationFile, mode: 'replace' | 'bilingual'): void {
+export function applyTranslation(data: TranslationFile, mode: 'replace' | 'bilingual'): { applied: number; missed: number } {
   const { texts } = data;
+  let applied = 0;
+  let missed = 0;
 
   for (const entry of texts) {
     if (!entry.translated) continue;
@@ -51,25 +58,32 @@ export function applyTranslation(data: TranslationFile, mode: 'replace' | 'bilin
             : `img[alt]`;
 
       const elements = document.querySelectorAll(selector);
+      let found = false;
       for (const el of elements) {
         if (el.getAttribute(entry.attribute) === entry.original) {
           if (mode === 'replace') {
             replaceAttribute(el, entry.attribute, entry.translated);
           }
-          break;
+          found = true;
         }
       }
+      if (found) applied++; else missed++;
     } else {
-      const textNode = findTextNodeByContent(entry.original);
-      if (!textNode) continue;
+      const textNodes = findAllTextNodes(entry.original);
+      if (textNodes.length === 0) { missed++; continue; }
 
-      if (mode === 'replace') {
-        replaceTextContent(textNode, entry.translated);
-      } else {
-        insertBilingualAfter(textNode, entry.translated);
+      for (const textNode of textNodes) {
+        if (mode === 'replace') {
+          replaceTextContent(textNode, entry.translated);
+        } else {
+          insertBilingualAfter(textNode, entry.translated);
+        }
       }
+      applied++;
     }
   }
+
+  return { applied, missed };
 }
 
 export function removeBilingual(): void {
